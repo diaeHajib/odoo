@@ -18,7 +18,7 @@ set -e
 : "${ODOO_DB_MAXCONN:=16}"
 : "${ODOO_PROXY_MODE:=1}"
 : "${ODOO_LOG_LEVEL:=info}"
-: "${ODOO_ADDONS_PATH:=/opt/odoo/addons,/opt/odoo/odoo/addons,/mnt/extra-addons}"
+: "${ODOO_ADDONS_PATH:=/opt/odoo/addons,/opt/odoo/odoo/addons,/opt/odoo/custom_addons,/mnt/extra-addons}"
 : "${ODOO_DATA_DIR:=/var/lib/odoo}"
 
 # ---- config file: base image conf + the FileOnlyOptions we need -------------
