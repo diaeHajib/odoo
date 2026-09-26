@@ -4,25 +4,33 @@
 # reports, node-less, rtlcss, fonts, postgres client), so we only overlay the
 # fork's code instead of rebuilding an Odoo install from scratch.
 #
-# HOW THE FORK WINS OVER THE IMAGE'S OWN ODOO PACKAGE
-#   * PYTHONPATH=/opt/odoo makes `/usr/bin/odoo` (from the .deb) resolve
-#     `import odoo` to /opt/odoo first.
-#   * the guard below FAILS THE BUILD if that isn't true, so a mis-built image
-#     can never silently run the stock package.
+# HOW THE FORK WINS OVER THE IMAGE'S OWN ODOO TREE  (read before editing!)
+#   * Odoo uses IMPLICIT NAMESPACE PACKAGES (PEP 420): the source tree has NO
+#     odoo/__init__.py, and neither does the image's /usr/lib/python3/dist-packages/odoo.
+#     Python therefore MERGES every `odoo` directory found on sys.path into one
+#     namespace, and the FIRST entry wins per submodule.
+#   * => PYTHONPATH=/opt/odoo must be set for the /opt/odoo tree to come first.
+#     It is set BEFORE the guard on purpose: with it set later, the guard would
+#     test the image's tree and pass/fail for the wrong reason.
+#   * the guard asserts /opt/odoo/odoo is path[0] AND that a real submodule
+#     (odoo.tools) loads from /opt/odoo. Never check odoo.__file__ here: for a
+#     namespace package it is None.
 #
 # BUILD ARG
 #   NYX_INSTALL_REQS=1 -> also run `pip install -r requirements.txt`.
-#     Default 0: on a pristine 19.0 branch the .deb already satisfies those
-#     deps, and pip would want to compile psycopg2/python-ldap/lxml (the
-#     runtime image has no dev headers). Flip it ON only if you ADD a python
-#     dependency, and expect a slower, much heavier build.
+#     Default 0: on a pristine 19.0 branch the .deb already satisfies those deps,
+#     and pip would want to compile psycopg2/python-ldap/lxml (this runtime image
+#     has no dev headers). Flip ON only if you ADD a python dependency.
 FROM odoo:19.0
 
 ARG NYX_INSTALL_REQS=0
 
 USER root
 
-# 1. Fork source (.dockerignore keeps the ~17GB .git out of the build context)
+# 1. Fork source first on the import path (.dockerignore keeps the ~17GB .git out)
+ENV PYTHONPATH=/opt/odoo \
+    ODOO_ADDONS_PATH=/opt/odoo/addons,/opt/odoo/odoo/addons,/mnt/extra-addons
+
 COPY --chown=odoo:odoo . /opt/odoo
 
 # 2. Optional python requirements for this branch (see BUILD ARG above)
@@ -36,12 +44,10 @@ RUN if [ "$NYX_INSTALL_REQS" = "1" ]; then \
       echo "[nyx] NYX_INSTALL_REQS=0 - using the odoo:19.0 deb-provided python deps"; \
     fi
 
-# 3. GUARDS: prove the fork is the code that will actually run
-RUN python3 -c "import odoo; p = odoo.__file__; assert p.startswith('/opt/odoo/'), 'WRONG SOURCE -> ' + p; print('[nyx] fork source in use ->', p)" \
+# 3. GUARDS - prove the fork is the code that will actually run.
+#    Namespace-package aware: __path__ + a real submodule, never __file__.
+RUN python3 -c 'import odoo, odoo.tools; p = list(odoo.__path__); print("[nyx] odoo.__path__ =", p); assert p and p[0].startswith("/opt/odoo"), "fork is not FIRST on the import path: %s" % p; t = odoo.tools.__file__; print("[nyx] odoo.tools ->", t); assert t.startswith("/opt/odoo"), "submodule loaded from the wrong tree: %s" % t; import odoo.release as r; print("[nyx] fork source in use, version", r.version)' \
  && python3 -c "import lxml, psycopg2, gevent, PIL, passlib, babel; print('[nyx] runtime deps present')"
-
-ENV PYTHONPATH=/opt/odoo \
-    ODOO_ADDONS_PATH=/opt/odoo/addons,/opt/odoo/odoo/addons,/mnt/extra-addons
 
 # 4. Wrapper entrypoint: turns env vars into Odoo CLI args, then hands off to
 #    the official /entrypoint.sh (waits for postgres, applies db_* settings).
