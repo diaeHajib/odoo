@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_nyx_demo_item_user,nyx.demo.item.user,model_nyx_demo_item,base.group_user,1,1,1,0
+access_nyx_demo_item_manager,nyx.demo.item.manager,model_nyx_demo_item,base.group_system,1,1,1,1
