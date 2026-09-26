@@ -1,0 +1,19 @@
+# Never ship .git to the builder: the full odoo history is ~17 GB.
+.git
+/.github
+/.gitignore
+/.weblate.json
+/doc
+/debian
+/setup
+/CONTRIBUTING.md
+/README.md
+/SECURITY.md
+/COPYRIGHT
+/LICENSE
+**/__pycache__
+**/*.pyc
+**/*.pyo
+*.patch
+*.diff
+*.orig
