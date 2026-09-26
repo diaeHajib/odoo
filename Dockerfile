@@ -28,8 +28,10 @@ ARG NYX_INSTALL_REQS=0
 USER root
 
 # 1. Fork source first on the import path (.dockerignore keeps the ~17GB .git out)
+#    custom_addons/ is where Eden's own modules live and is on the addons-path,
+#    so anything committed there ships to staging/prod with the next deploy.
 ENV PYTHONPATH=/opt/odoo \
-    ODOO_ADDONS_PATH=/opt/odoo/addons,/opt/odoo/odoo/addons,/mnt/extra-addons
+    ODOO_ADDONS_PATH=/opt/odoo/addons,/opt/odoo/odoo/addons,/opt/odoo/custom_addons,/mnt/extra-addons
 
 COPY --chown=odoo:odoo . /opt/odoo
 
